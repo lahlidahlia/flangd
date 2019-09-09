@@ -1,4 +1,4 @@
-#!/home/ahuynh/f18/flangd/venv/bin/python3
+#!/home/ahuynh/flangd/venv/bin/python3
 import json
 import server
 from utils import *
