@@ -1,7 +1,7 @@
 import sys
 
 def eprint(*args):
-  print(*args, file=sys.stderr)
+  print("flangd: {}".format(*args), file=sys.stderr)
   sys.stderr.flush()
 
 def parse_uri(uri):

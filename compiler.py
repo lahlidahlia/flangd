@@ -8,15 +8,18 @@ class Compiler:
         self.user_root = user_root
         self.mod_loc = tempfile.TemporaryDirectory(prefix='flangd_mod_')
         self.compiler = 'f18'
-        self.default_flags = [
-            '-fparse-only', '-fdebug-semantics', '-fflangd-diagnostics']
+        self.default_flags = ['-fparse-only', '-fdebug-semantics']
 
     def compile(self, file, extra_flags=[]):
         command = self.construct_command(file, extra_flags)
-        output = subprocess.run(command, stdout=subprocess.PIPE)
+        eprint("Compilation command: {}".format(command))
+        output = subprocess.run(command,
+                                stdout=subprocess.PIPE,
+                                stderr=subprocess.PIPE)
         return_code = output.returncode
-        output = output.stdout.decode('utf-8')
-        return (return_code, output)
+        stdout = output.stdout.decode('utf-8')
+        stderr = output.stderr.decode('utf-8')
+        return (return_code, stdout, stderr)
 
     def compile_content(self, content, extra_flags=[], suffix='.f90'):
         with tempfile.NamedTemporaryFile(mode='w', suffix=suffix) as f:
@@ -24,10 +27,6 @@ class Compiler:
             f.flush()
             eprint(f.name)
             return self.compile(f.name, extra_flags)
-
-    def compile_check_content(self, content, extra_flags=[]):
-        r, _ = self.compile_content(content)
-        return True if r == 0 else False
 
     def construct_command(self, file, extra_flags):
         return [self.compiler] + ['-module', self.mod_loc.name] + \

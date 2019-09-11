@@ -15,10 +15,17 @@ class Server:
             'textDocument/didOpen': self.on_did_open,
             'textDocument/didSave': self.on_did_save,
             'textDocument/didChange': self.on_did_change,
+            'textDocument/didClose': self.on_did_close,
             'textDocument/documentSymbol': self.on_document_symbol,
         }
         self.root_uri = None
         self.workspace = None
+
+    def run(self):
+        while True:
+            id, body, params = self.read_request()
+            self.handle_request(id, body, params)
+            sys.stderr.flush()
 
     def read_header_length(self, line):
         value = line.split("Content-Length: ")[1]
@@ -31,66 +38,113 @@ class Server:
         while line != "\r\n":
             line = sys.stdin.readline()
         body = json.loads(sys.stdin.read(length))
-        # if body['method'] != 'initialize':
-        #eprint("Request body:")
-        # eprint("----------------")
-        #eprint(json.dumps(body, indent=2))
-        # eprint("----------------")
         return body.get('id', None), body['method'], body['params']
 
     def handle_request(self, id, method, params):
-        eprint("Handling request with id {} and method {}".format(id, method))
-        body = {
-            "jsonrpc": "2.0",
-            "id": id,
-        }
-        body['result'] = self.handler.get(method, lambda *args: None)(params)
-        body = json.dumps(body, separators=(",", ":"))
+        response = self.handler.get(method, lambda *args: None)(params)
         if id == None:
-            # No id means no need to respond.
-            return
-        content_length = len(body)
-        response = (
-            "Content-Length: {0}\r\n"
-            "Content-Type: application/vscode-jsonrpc; charset=utf8\r\n\r\n"
-            "{1}".format(content_length, body))
-        sys.stdout.write(response)
-        sys.stdout.flush()
+            eprint("Received notification with method {}".format(method))
 
-        # if method == "initialize":
-        #  return
-        # eprint("Response")
-        # eprint("================")
-        # eprint(response)
-        # eprint("================")
+        else:
+            eprint("Handling request with id {} and method {}".format(
+                id, method))
+            self.respond_request(response, id)
 
     def on_initialize(self, params):
-        eprint("which f18: " + subprocess.run(["which", "f18"],
-                                              stdout=subprocess.PIPE).stdout.decode('utf-8'))
+        eprint("which f18: " + subprocess.run(
+            ["which", "f18"], stdout=subprocess.PIPE).stdout.decode('utf-8'))
         self.root_uri = params['rootUri']
         self.workspace = Workspace(self.root_uri)
         return {
-            "capabilities": {
-                "textDocumentSync": {
-                    "openClose": True,
-                    "change": True,
-                    "save": {
-                        "includeText": True
-                    }
+            'capabilities': {
+                'textDocumentSync': {
+                    'openClose': True,
+                    'change': 1,
+                    'save': {
+                        'includeText': True
+                    },
                 },
-                # "completionProvider": {
-                #    "resolveProvider": False,
-                #    "triggerCharacters": ["%"]
+                # 'completionProvider': {
+                #    'resolveProvider': False,
+                #    'triggerCharacters': ['%']
                 # },
-                "definitionProvider": True,
-                "documentSymbolProvider": True,
-                # "referencesProvider": True,
-                # "hoverProvider": True,
-                # "implementationProvider": True,
-                # "renameProvider": True,
-                # "workspaceSymbolProvider": True,
+                'definitionProvider': True,
+                'documentSymbolProvider': True,
+                # 'referencesProvider': True,
+                # 'hoverProvider': True,
+                # 'implementationProvider': True,
+                # 'renameProvider': True,
+                # 'workspaceSymbolProvider': True,
             }
         }
+
+    def on_did_open(self, params):
+        document = parse_uri(params['textDocument']['uri'])
+        if not document:
+            return None
+        content = params['textDocument']['text']
+        diagnostics = self.workspace.save_file(document, content, new=True)
+        self.send_diagnostics(diagnostics, document)
+
+    def on_did_save(self, params):
+        document = parse_uri(params['textDocument']['uri'])
+        if not document:
+            return None
+        content = params['text']
+        diagnostics = self.workspace.save_file(document, content, new=False)
+        self.send_diagnostics(diagnostics, document)
+
+    def on_did_change(self, params):
+        document = parse_uri(params['textDocument']['uri'])
+        if not document:
+            return None
+        changes = params['contentChanges']
+        for change in changes:
+            content = change['text']
+            diagnostics = self.workspace.save_file(document,
+                                                   content,
+                                                   new=False)
+            self.send_diagnostics(diagnostics, document)
+
+    def on_did_close(self, params):
+        document = parse_uri(params['textDocument']['uri'])
+        self.workspace.close_file(document)
+        self.clear_diagnostics(document)
+
+    def clear_diagnostics(self, document):
+        self.send_diagnostics(None, document)
+
+    def send_diagnostics(self, diagnostics, document):
+        result_diagnostics = []
+        if diagnostics:
+            for diag in diagnostics:
+                path, startLine, startColumn, endLine, endColumn, code, message = diag
+                code = 1 if code == 'error' else 'warning'
+                path = 'file://' + path
+                result_diagnostics.append({
+                    'code': code,
+                    'message': message,
+                    "range": {
+                        "start": {
+                            "line": startLine - 1,
+                            "character": startColumn - 1
+                        },
+                        "end": {
+                            "line": endLine - 1,
+                            "character": endColumn - 1
+                        }
+                    }
+                })
+            params = {
+                'uri': 'file://' + document,
+                'diagnostics': result_diagnostics,
+            }
+        else:
+            params = {
+                'uri': 'file://' + document,
+                'diagnostics': [],
+            }
+        self.send_request('textDocument/publishDiagnostics', params)
 
     def on_definition(self, params):
         document_uri = params['textDocument']['uri']
@@ -110,29 +164,16 @@ class Server:
         return {
             "uri": document,
             "range": {
-                "start": {"line": line - 1, "character": startColumn - 1},
-                "end": {"line": line - 1, "character": endColumn - 1},
+                "start": {
+                    "line": line - 1,
+                    "character": startColumn - 1
+                },
+                "end": {
+                    "line": line - 1,
+                    "character": endColumn - 1
+                },
             },
         }
-
-    def sync_document(self, params, new=False):
-        textDocument = params['textDocument']
-        # if textDocument['languageId'] != 'Fortran':
-        #   return None
-        document = parse_uri(textDocument['uri'])
-        if not document:
-            return None
-        content = textDocument['text']
-        self.workspace.save_file(document, content, new)
-
-    def on_did_open(self, params):
-        self.sync_document(params, new=True)
-
-    def on_did_save(self, params):
-        self.sync_document(params)
-
-    def on_did_change(self, params):
-        self.sync_document(params)
 
     def on_document_symbol(self, params):
         document_uri = params['textDocument']['uri']
@@ -145,28 +186,52 @@ class Server:
         documentSymbols = []
         for symbol, info in output.items():
             if len(info) == 1:
-                eprint("Skipping symbol: " + symbol)
+                eprint('Skipping symbol: ' + symbol)
                 continue
             path, line, startColumn, endColumn = info
-            document = "file://" + path
-            start = {"line": line - 1, "character": startColumn - 1}
-            end = {"line": line - 1, "character": endColumn - 1}
+            document = 'file://' + path
+            start = {'line': line - 1, 'character': startColumn - 1}
+            end = {'line': line - 1, 'character': endColumn - 1}
             documentSymbol = {
-                "name": symbol,
-                "kind": 6,
-                "location": {
-                    "uri": document,
-                    "range": {
-                        "start": start,
-                        "end": end,
+                'name': symbol,
+                'kind': 6,
+                'location': {
+                    'uri': document,
+                    'range': {
+                        'start': start,
+                        'end': end,
                     }
                 }
             }
             documentSymbols.append(documentSymbol)
         return documentSymbols
 
-    def run(self):
-        while True:
-            id, body, params = self.read_request()
-            self.handle_request(id, body, params)
-            sys.stderr.flush()
+    def respond_request(self, result, id):
+        body = {
+            'jsonrpc': '2.0',
+            'id': id,
+        }
+        body['result'] = result
+        self.send(body)
+
+    def send_request(self, method, params, id=None):
+        body = {
+            'jsonrpc': '2.0',
+            'method': method,
+        }
+        if id != None:
+            body['id'] = id
+        body['params'] = params
+        # eprint("Sending request with method {} and id {}.".format(
+        #     method, id))
+        self.send(body)
+
+    def send(self, body):
+        body = json.dumps(body, separators=(",", ":"))
+        content_length = len(body)
+        response = (
+            "Content-Length: {0}\r\n"
+            "Content-Type: application/vscode-jsonrpc; charset=utf8\r\n\r\n"
+            "{1}".format(content_length, body))
+        sys.stdout.write(response)
+        sys.stdout.flush()

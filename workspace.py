@@ -27,8 +27,17 @@ class Workspace:
         if new:
             self.files[path] = File(path, content, self.compiler)
         else:
-            if path in self.files:
-                self.files[path].update_content(content)
+            if path not in self.files:
+                return None
+            self.files[path].update_content(content)
+        if self.files[path].has_diagnostics():
+            return self.files[path].diagnostics
+        else:
+            return None
+
+    def close_file(self, path):
+        if path in self.files:
+            del self.files[path]
 
     def get_symbols(self, path):
         if path in self.files:
