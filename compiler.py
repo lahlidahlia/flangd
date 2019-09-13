@@ -4,11 +4,11 @@ import tempfile
 
 
 class Compiler:
-    def __init__(self, user_root):
+    def __init__(self, user_root, compiler, default_flags):
         self.user_root = user_root
         self.mod_loc = tempfile.TemporaryDirectory(prefix='flangd_mod_')
-        self.compiler = 'f18'
-        self.default_flags = ['-fparse-only', '-fdebug-semantics']
+        self.compiler = compiler
+        self.default_flags = default_flags.split(' ')
 
     def compile(self, file, extra_flags=[]):
         command = self.construct_command(file, extra_flags)
@@ -21,7 +21,7 @@ class Compiler:
         stderr = output.stderr.decode('utf-8')
         return (return_code, stdout, stderr)
 
-    def compile_content(self, content, extra_flags=[], suffix='.f90'):
+    def compile_content(self, content, suffix, extra_flags=[]):
         with tempfile.NamedTemporaryFile(mode='w', suffix=suffix) as f:
             f.write(content)
             f.flush()

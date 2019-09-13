@@ -12,6 +12,8 @@
   "activationEvents": [
     "onLanguage:fortran",
     "onLanguage:fortran-modern",
+    "onLanguage:fortran_fixed-form",
+    "onLanguage:FortranFreeForm",
     "onCommand:flangd.activate"
   ],
   "main": "./out/extension.js",
@@ -27,7 +29,7 @@
       "title": "flangd configuration",
       "properties": {
 				"flangd.trace.server": {
-					"scope": "window",
+					"scope": "resource",
 					"type": "string",
 					"enum": [
 						"off",
@@ -36,7 +38,25 @@
 					],
 					"default": "messages",
 					"description": "Traces the communication between VS Code and the language server."
-				}
+        },
+        "flangd.flangdPath": {
+          "scope": "resource",
+          "type": "string",
+          "default": "flangd.py",
+          "description": "Path to flangd."
+        },
+        "flangd.f18Path": {
+          "scope": "resource",
+          "type": "string",
+          "default": "f18",
+          "description": "Path to f18."
+        },
+        "flangd.f18Args": {
+          "scope": "resource",
+          "type": "string",
+          "default": "-fparse-only -fdebug-semantics",
+          "description": "Arguments that are passed to f18 on every use."
+        }
       }
     }
   },

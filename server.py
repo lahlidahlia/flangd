@@ -8,9 +8,10 @@ import os
 
 
 class Server:
-    def __init__(self):
+    def __init__(self, f18_path, f18_args):
         self.handler = {
             'initialize': self.on_initialize,
+            'initialized': self.after_initialize,
             'textDocument/definition': self.on_definition,
             'textDocument/didOpen': self.on_did_open,
             'textDocument/didSave': self.on_did_save,
@@ -20,6 +21,8 @@ class Server:
         }
         self.root_uri = None
         self.workspace = None
+        self.f18_path = f18_path
+        self.f18_args = f18_args
 
     def run(self):
         while True:
@@ -44,17 +47,14 @@ class Server:
         response = self.handler.get(method, lambda *args: None)(params)
         if id == None:
             eprint("Received notification with method {}".format(method))
-
         else:
             eprint("Handling request with id {} and method {}".format(
                 id, method))
             self.respond_request(response, id)
 
     def on_initialize(self, params):
-        eprint("which f18: " + subprocess.run(
-            ["which", "f18"], stdout=subprocess.PIPE).stdout.decode('utf-8'))
         self.root_uri = params['rootUri']
-        self.workspace = Workspace(self.root_uri)
+        self.workspace = Workspace(self.root_uri, self.f18_path, self.f18_args)
         return {
             'capabilities': {
                 'textDocumentSync': {
@@ -64,12 +64,13 @@ class Server:
                         'includeText': True
                     },
                 },
+                'definitionProvider': True,
+                'documentSymbolProvider': True,
                 # 'completionProvider': {
                 #    'resolveProvider': False,
                 #    'triggerCharacters': ['%']
                 # },
-                'definitionProvider': True,
-                'documentSymbolProvider': True,
+
                 # 'referencesProvider': True,
                 # 'hoverProvider': True,
                 # 'implementationProvider': True,
@@ -77,6 +78,27 @@ class Server:
                 # 'workspaceSymbolProvider': True,
             }
         }
+
+    def after_initialize(self, params):
+        f18_path = subprocess.run(
+            ["which", self.f18_path], stdout=subprocess.PIPE).stdout.decode('utf-8')
+        which_f18_msg = "which f18: " + f18_path
+        eprint(which_f18_msg)
+        if f18_path:
+            self.send_notification('window/showMessage', {
+                'type': 3,  # Info
+                'message': "flangd started successfully!\n"
+            })
+            self.send_notification('window/showMessage', {
+                'type': 3,  # Info
+                'message': which_f18_msg
+            })
+        else:
+            self.send_notification('window/showMessage', {
+                'type': 3,  # Info
+                'message': "Invalid f18 location. Specify path in settings."
+            })
+        return None
 
     def on_did_open(self, params):
         document = parse_uri(params['textDocument']['uri'])
@@ -144,7 +166,7 @@ class Server:
                 'uri': 'file://' + document,
                 'diagnostics': [],
             }
-        self.send_request('textDocument/publishDiagnostics', params)
+        self.send_notification('textDocument/publishDiagnostics', params)
 
     def on_definition(self, params):
         document_uri = params['textDocument']['uri']
@@ -214,7 +236,10 @@ class Server:
         body['result'] = result
         self.send(body)
 
-    def send_request(self, method, params, id=None):
+    def send_notification(self, method, params):
+        self.send_request(method, params, None)
+
+    def send_request(self, method, params, id):
         body = {
             'jsonrpc': '2.0',
             'method': method,

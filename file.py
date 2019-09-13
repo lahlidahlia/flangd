@@ -11,13 +11,16 @@ class File():
         self.symbols = {}
         self.diagnostics = []
         _, self.suffix = os.path.splitext(path)
+        eprint("path: {}, ext: {}".format(self.path, self.suffix))
         self.update_content(content)
 
     def update_content(self, content):
         self.clear_diagnostics()
         self.content = content
         rcode, stdout, _ = self.compiler.compile_content(
-            self.content, suffix=self.suffix, extra_flags=['-fflangd-diagnostic'])
+            self.content,
+            self.suffix,
+            extra_flags=['-fflangd-diagnostic'])
         if rcode == 0:
             self.compilable_content = content
             self.update_symbols()
@@ -36,8 +39,8 @@ class File():
         extra_flags = ['-fget-symbols-sources']
         rcode, output, _ = self.compiler.compile_content(
             self.compilable_content,
-            extra_flags=extra_flags,
-            suffix=self.suffix)
+            self.suffix,
+            extra_flags=extra_flags)
         if rcode == 1:
             return
         lines = output.splitlines()
@@ -52,8 +55,9 @@ class File():
             return None
         c1, c2 = columns
         extra_flags = ['-fget-definition', str(line), str(c1), str(c2)]
-        rcode, output, _ = self.compiler.compile_content(self.compilable_content,
-                                                extra_flags=extra_flags)
+        rcode, output, _ = self.compiler.compile_content(
+            self.compilable_content,
+            self.suffix, extra_flags=extra_flags)
         if rcode == 1:
             return None
         _, *output = self.parse_symbol_def(output)

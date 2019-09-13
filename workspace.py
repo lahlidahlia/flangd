@@ -7,9 +7,9 @@ from file import File
 
 
 class Workspace:
-    def __init__(self, user_root_uri):
+    def __init__(self, user_root_uri, compiler_path, compiler_args):
         self.user_root = parse_uri(user_root_uri) + '/'
-        self.compiler = Compiler(self.user_root)
+        self.compiler = Compiler(self.user_root, compiler_path, compiler_args)
         self.files = {}
         compilation_order = []
 
