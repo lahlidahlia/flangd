@@ -6,14 +6,14 @@ provider.
 ## Features
 
 Currently implemented Go To Definition, Document Symbols and Diagnostics (with
-my fork of f18) (https://github.com/tinlun/f18/tree/master).
+my fork of f18).
 
 ## Requirements
 
 
 This package requires [f18](https://github.com/flang-compiler/f18).
 
-Diagnostic feature requires [my fork of f18](https://github.com/tinlun/f18/tree/master).
+Diagnostic feature requires [my fork of f18](https://github.com/tinlun/f18/tree/master)
 
 This package also requires the following extensions to be installed:
  * [Modern Fortran](https://marketplace.visualstudio.com/items?itemName=krvajalm.linter-gfortran) or [fortran](https://marketplace.visualstudio.com/items?itemName=Gimly81.fortran)
@@ -28,30 +28,31 @@ This extension is only available for Linux. You can also use this extension if
 you are using Windows Subsystem for Linux, though the steps are a bit more
 convoluted.
 
-### Linux:
+### Linux
 In the root of this repository:
 ```
 code --install-extension flangd-0.0.1.vsix
 ```
 
-### WSL using Remote-WSL:
+### WSL using Remote-WSL
 Assuming you already have WSL installed.
 
 Install the [Remote-WSL extension](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-wsl) for VS Code.
 
-Copy the `tinlun.flangd-0.0.1` directory into `~/.vscode-server/extensions`
 
-Launch VS Code in WSL mode.
+-----------------------------------------------------------------------------------------------------------
 
-### Then, for all methods:
-Check that you have flangd installed by going to VS Code settings (`Ctrl + ,`)
-and searching for flangd. If the extension was installed correctly, some settings
-should show up there.
+## Working with Markdown
 
-While the settings are up, **set the correct path to flangd and f18.** If you
-don't set these paths correctly, flangd will blow up on you.
+**Note:** You can author your README using Visual Studio Code.  Here are some useful editor keyboard shortcuts:
 
-Once set, reload the VS Code window by `F1` > `Developer: Reload Window`.
+* Split the editor (`Cmd+\` on macOS or `Ctrl+\` on Windows and Linux)
+* Toggle preview (`Shift+CMD+V` on macOS or `Shift+Ctrl+V` on Windows and Linux)
+* Press `Ctrl+Space` (Windows, Linux) or `Cmd+Space` (macOS) to see a list of Markdown snippets
 
-Then try opening a fortran document. If done correctly, there should be a text
-notification that pops up telling you which f18 flangd is using.
+### For more information
+
+* [Visual Studio Code's Markdown Support](http://code.visualstudio.com/docs/languages/markdown)
+* [Markdown Syntax Reference](https://help.github.com/articles/markdown-basics/)
+
+**Enjoy!**

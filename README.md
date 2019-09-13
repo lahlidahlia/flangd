@@ -1,7 +1,8 @@
 # flangd README
 
 flangd is a Fortran language server written in Python, using f18 as the feature
-provider.
+provider. It is a work in progress, and has limited features. If you have
+any issues at all, please make an issue.
 
 ## Features
 
